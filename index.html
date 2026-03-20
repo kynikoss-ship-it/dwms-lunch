@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동원중학교 오늘의 급식</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        .animate-fade { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-[#f2f6f9] text-slate-900 min-h-screen flex flex-col items-center py-8 md:py-16 px-4">
+
+    <div class="w-full max-w-md">
+        <!-- 헤더 -->
+        <header class="flex justify-between items-end mb-8 px-1">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-900 tracking-tight">동원중학교 급식</h1>
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Daily Meal Information</p>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-slate-200">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Live Connection</span>
+            </div>
+        </header>
+
+        <!-- 날짜 네비게이션 -->
+        <nav class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-6 flex items-center justify-between">
+            <button onclick="changeDate(-1)" class="w-11 h-11 flex items-center justify-center hover:bg-slate-50 rounded-xl transition-all text-slate-600 active:scale-90" title="전날">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <div class="text-center cursor-pointer select-none" onclick="resetToToday()">
+                <p id="display-date" class="text-lg font-bold text-slate-800 tracking-tight leading-none">날짜 로딩 중...</p>
+                <p id="return-hint" class="text-[9px] font-extrabold text-blue-500 mt-1.5 uppercase tracking-widest opacity-0 transition-opacity">Today</p>
+            </div>
+            <button onclick="changeDate(1)" class="w-11 h-11 flex items-center justify-center hover:bg-slate-50 rounded-xl transition-all text-slate-600 active:scale-90" title="다음날">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </nav>
+
+        <!-- 식단 카드 -->
+        <main id="main-card" class="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-white overflow-hidden min-h-[380px] flex flex-col">
+            
+            <div id="loading-view" class="flex-1 flex flex-col items-center justify-center p-12">
+                <div class="w-6 h-6 border-[3px] border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+
+            <div id="data-view" class="hidden flex-1 flex flex-col animate-fade">
+                <div class="px-10 pt-12 pb-8">
+                    <div class="flex items-center gap-4 mb-10">
+                        <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl shadow-inner">🍱</div>
+                        <h2 class="text-xl font-bold text-slate-800">오늘의 중식</h2>
+                    </div>
+                    
+                    <ul id="menu-list" class="space-y-5">
+                        <!-- 메뉴 항목 -->
+                    </ul>
+                </div>
+
+                <div class="mt-auto bg-slate-50/50 p-6 border-t border-slate-50 flex justify-center">
+                    <span class="text-[10px] font-bold text-slate-300 uppercase tracking-[0.3em]">Official Lunch Data</span>
+                </div>
+            </div>
+
+            <div id="empty-view" class="hidden flex-1 flex flex-col items-center justify-center p-12 text-center animate-fade">
+                <div class="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-3xl mb-4 text-slate-300">📅</div>
+                <h3 class="text-slate-800 font-bold text-lg" id="empty-msg">정보 없음</h3>
+                <p class="text-slate-400 text-xs mt-1" id="empty-sub">주말 또는 미등록 상태입니다.</p>
+            </div>
+        </main>
+
+        <footer class="mt-10 text-center">
+            <a href="https://dongwon-ms.gne.go.kr" target="_blank" class="text-[10px] font-bold text-slate-400 hover:text-blue-600 transition-colors tracking-widest uppercase inline-block border-b border-transparent hover:border-blue-200 pb-1">Dongwon Middle School</a>
+        </footer>
+    </div>
+
+    <script>
+        const API_URL = "https://open.neis.go.kr/hub/mealServiceDietInfo";
+        const SCHOOL_INFO = {
+            office: "S10",
+            code: "9071087",
+            meal: "2"
+        };
+
+        let activeDate = new Date();
+
+        function getFormattedDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}${m}${d}`;
+        }
+
+        async function updateMealBoard() {
+            const views = {
+                loading: document.getElementById('loading-view'),
+                data: document.getElementById('data-view'),
+                empty: document.getElementById('empty-view')
+            };
+            
+            Object.values(views).forEach(v => v.classList.add('hidden'));
+            views.loading.classList.remove('hidden');
+
+            const dateStr = getFormattedDate(activeDate);
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            document.getElementById('display-date').innerText = `${activeDate.getFullYear()}. ${activeDate.getMonth()+1}. ${activeDate.getDate()}. (${days[activeDate.getDay()]})`;
+
+            // 오늘 날짜 여부 힌트 표시
+            const todayStr = getFormattedDate(new Date());
+            document.getElementById('return-hint').style.opacity = (dateStr === todayStr) ? "0" : "1";
+
+            if (activeDate.getDay() === 0 || activeDate.getDay() === 6) {
+                showEmpty("주말 급식 없음", "토요일과 일요일은 급식을 운영하지 않습니다.");
+                return;
+            }
+
+            try {
+                const url = `${API_URL}?Type=json&ATPT_OFCDC_SC_CODE=${SCHOOL_INFO.office}&SD_SCHUL_CODE=${SCHOOL_INFO.code}&MLSV_YMD=${dateStr}&MMEAL_SC_CODE=${SCHOOL_INFO.meal}`;
+                const res = await fetch(url);
+                const json = await res.json();
+
+                if (json.mealServiceDietInfo) {
+                    displayMeal(json.mealServiceDietInfo[1].row[0]);
+                } else {
+                    showEmpty("등록된 식단 없음", "해당 날짜의 중식 데이터가 존재하지 않습니다.");
+                }
+            } catch (e) {
+                showEmpty("연결 오류", "데이터 서버와의 통신이 원활하지 않습니다.");
+            }
+        }
+
+        function displayMeal(data) {
+            document.getElementById('loading-view').classList.add('hidden');
+            document.getElementById('data-view').classList.remove('hidden');
+
+            const list = document.getElementById('menu-list');
+            const items = data.DDISH_NM.split('<br/>')
+                            .map(s => s.replace(/\([0-9.]+\)/g, '').trim())
+                            .filter(s => s);
+
+            list.innerHTML = items.map(item => `
+                <li class="flex items-center group">
+                    <div class="w-2 h-2 rounded-full bg-blue-100 group-hover:bg-blue-600 transition-colors mr-5"></div>
+                    <span class="text-lg font-bold text-slate-700 tracking-tight">${item}</span>
+                </li>
+            `).join('');
+        }
+
+        function showEmpty(title, sub) {
+            document.getElementById('loading-view').classList.add('hidden');
+            const empty = document.getElementById('empty-view');
+            empty.classList.remove('hidden');
+            document.getElementById('empty-msg').innerText = title;
+            document.getElementById('empty-sub').innerText = sub;
+        }
+
+        function changeDate(n) {
+            activeDate.setDate(activeDate.getDate() + n);
+            updateMealBoard();
+        }
+
+        function resetToToday() {
+            activeDate = new Date();
+            updateMealBoard();
+        }
+
+        window.onload = updateMealBoard;
+    </script>
+</body>
+</html>
